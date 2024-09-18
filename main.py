@@ -1,19 +1,29 @@
-from flask import Flask, request, render_template, jsonify
+from flask import Flask, request, render_template, jsonify  # Import jsonify
 import numpy as np
 import pandas as pd
 import pickle
 
+
+# flask app
 app = Flask(__name__)
 
-# Loading the datasets
-sym_des = pd.read_csv("data/symtoms_df.csv")
-precautions = pd.read_csv("data/precautions_df.csv")
-workout = pd.read_csv("data/workout_df.csv")
-description = pd.read_csv("data/description.csv")
-medications = pd.read_csv('data/medications.csv')
-diets = pd.read_csv("data/diets.csv")
 
-svc = pickle.load(open('model/model/svc_model.pkl','rb'))
+
+# load databasedataset
+sym_des = pd.read_csv("datasets/symtoms_df.csv")
+precautions = pd.read_csv("datasets/precautions_df.csv")
+workout = pd.read_csv("datasets/workout_df.csv")
+description = pd.read_csv("datasets/description.csv")
+medications = pd.read_csv('datasets/medications.csv')
+diets = pd.read_csv("datasets/diets.csv")
+
+
+# load model
+svc = pickle.load(open('models/svc.pkl','rb'))
+
+
+
+# custome and helping functions
 
 def helper(dis):
     desc = description[description['Disease'] == dis]['Description']
@@ -42,5 +52,69 @@ def get_predicted_value(patient_symptoms):
     for item in patient_symptoms:
         input_vector[symptoms_dict[item]] = 1
     return diseases_list[svc.predict([input_vector])[0]]
-if __name__ == "__main__":
+
+
+
+
+# creating routes
+
+
+@app.route("/")
+def index():
+    return render_template("index.html")
+
+# Define a route for the home page
+@app.route('/predict', methods=['GET', 'POST'])
+def home():
+    if request.method == 'POST':
+        symptoms = request.form.get('symptoms')
+        # mysysms = request.form.get('mysysms')
+        # print(mysysms)
+        print(symptoms)
+        if symptoms =="Symptoms":
+            message = "Please either write symptoms or you have written misspelled symptoms"
+            return render_template('index.html', message=message)
+        else:
+
+            # Split the user's input into a list of symptoms (assuming they are comma-separated)
+            user_symptoms = [s.strip() for s in symptoms.split(',')]
+            # Remove any extra characters, if any
+            user_symptoms = [symptom.strip("[]' ") for symptom in user_symptoms]
+            predicted_disease = get_predicted_value(user_symptoms)
+            dis_des, precautions, medications, rec_diet, workout = helper(predicted_disease)
+
+            my_precautions = []
+            for i in precautions[0]:
+                my_precautions.append(i)
+
+            return render_template('index.html', predicted_disease=predicted_disease, dis_des=dis_des,
+                                   my_precautions=my_precautions, medications=medications, my_diet=rec_diet,
+                                   workout=workout)
+
+    return render_template('index.html')
+
+
+
+# about view funtion and path
+@app.route('/about')
+def about():
+    return render_template("about.html")
+# contact view funtion and path
+@app.route('/contact')
+def contact():
+    return render_template("contact.html")
+
+# developer view funtion and path
+@app.route('/developer')
+def developer():
+    return render_template("developer.html")
+
+# about view funtion and path
+@app.route('/blog')
+def blog():
+    return render_template("blog.html")
+
+
+if __name__ == '__main__':
+
     app.run(debug=True)
